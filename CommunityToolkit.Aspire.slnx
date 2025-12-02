@@ -47,6 +47,11 @@
     <Project Path="examples/golang/CommunityToolkit.Aspire.Hosting.Golang.AppHost/CommunityToolkit.Aspire.Hosting.Golang.AppHost.csproj" />
     <Project Path="examples/golang/CommunityToolkit.Aspire.Hosting.Golang.ServiceDefaults/CommunityToolkit.Aspire.Hosting.Golang.ServiceDefaults.csproj" />
   </Folder>
+  <Folder Name="/examples/influxdb/">
+    <Project Path="examples/influxdb/CommunityToolkit.Aspire.Hosting.InfluxDB.ApiService/CommunityToolkit.Aspire.Hosting.InfluxDB.ApiService.csproj" />
+    <Project Path="examples/influxdb/CommunityToolkit.Aspire.Hosting.InfluxDB.AppHost/CommunityToolkit.Aspire.Hosting.InfluxDB.AppHost.csproj" />
+    <Project Path="examples/influxdb/CommunityToolkit.Aspire.Hosting.InfluxDB.ServiceDefaults/CommunityToolkit.Aspire.Hosting.InfluxDB.ServiceDefaults.csproj" />
+  </Folder>
   <Folder Name="/examples/java/">
     <Project Path="examples/java/CommunityToolkit.Aspire.Hosting.Java.ApiApp/CommunityToolkit.Aspire.Hosting.Java.ApiApp.csproj" />
     <Project Path="examples/java/CommunityToolkit.Aspire.Hosting.Java.AppHost/CommunityToolkit.Aspire.Hosting.Java.AppHost.csproj" />
@@ -173,6 +178,8 @@
     <Project Path="src/CommunityToolkit.Aspire.Hosting.Flagd/CommunityToolkit.Aspire.Hosting.Flagd.csproj" />
     <Project Path="src/CommunityToolkit.Aspire.Hosting.GoFeatureFlag/CommunityToolkit.Aspire.Hosting.GoFeatureFlag.csproj" />
     <Project Path="src/CommunityToolkit.Aspire.Hosting.Golang/CommunityToolkit.Aspire.Hosting.Golang.csproj" />
+    <Project Path="src/CommunityToolkit.Aspire.Hosting.InfluxDB/CommunityToolkit.Aspire.Hosting.InfluxDB.csproj" />
+    <Project Path="src/CommunityToolkit.Aspire.InfluxDB.Client/CommunityToolkit.Aspire.InfluxDB.Client.csproj" />
     <Project Path="src/CommunityToolkit.Aspire.Hosting.Java/CommunityToolkit.Aspire.Hosting.Java.csproj" />
     <Project Path="src/CommunityToolkit.Aspire.Hosting.k6/CommunityToolkit.Aspire.Hosting.k6.csproj" />
     <Project Path="src/CommunityToolkit.Aspire.Hosting.KurrentDB/CommunityToolkit.Aspire.Hosting.KurrentDB.csproj" />
@@ -226,6 +233,7 @@
     <Project Path="tests/CommunityToolkit.Aspire.Hosting.Flagd.Tests/CommunityToolkit.Aspire.Hosting.Flagd.Tests.csproj" />
     <Project Path="tests/CommunityToolkit.Aspire.Hosting.GoFeatureFlag.Tests/CommunityToolkit.Aspire.Hosting.GoFeatureFlag.Tests.csproj" />
     <Project Path="tests/CommunityToolkit.Aspire.Hosting.Golang.Tests/CommunityToolkit.Aspire.Hosting.Golang.Tests.csproj" />
+    <Project Path="tests/CommunityToolkit.Aspire.Hosting.InfluxDB.Tests/CommunityToolkit.Aspire.Hosting.InfluxDB.Tests.csproj" />
     <Project Path="tests/CommunityToolkit.Aspire.Hosting.Java.Tests/CommunityToolkit.Aspire.Hosting.Java.Tests.csproj" />
     <Project Path="tests/CommunityToolkit.Aspire.Hosting.k6.Tests/CommunityToolkit.Aspire.Hosting.k6.Tests.csproj" />
     <Project Path="tests/CommunityToolkit.Aspire.Hosting.KurrentDB.Tests/CommunityToolkit.Aspire.Hosting.KurrentDB.Tests.csproj" />
