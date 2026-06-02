@@ -1,4 +1,5 @@
 ﻿using Aspire.Hosting.ApplicationModel;
+using System.Diagnostics.Metrics;
 using System.Text;
 
 namespace Aspire.Hosting;
@@ -13,6 +14,7 @@ public static class MongoDBBuilderExtensions
     /// </summary>
     /// <remarks>
     /// This version of the package defaults to the <inheritdoc cref="DbGateContainerImageTags.Tag"/> tag of the <inheritdoc cref="DbGateContainerImageTags.Image"/> container image.
+    /// This overload is not available in polyglot app hosts. Use the overload without the configuration callback instead.
     /// </remarks>
     /// <param name="builder">The MongoDB server resource builder.</param>
     /// <param name="configureContainer">Configuration callback for DbGate container resource.</param>
@@ -33,61 +35,68 @@ public static class MongoDBBuilderExtensions
     /// </code>
     /// </example>
     /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+#pragma warning disable ASPIREATS001
+    [AspireExportIgnore(Reason = "The configuration callback depends on DbGate container APIs that are not exported to polyglot app hosts. Use the overload without a configuration callback instead.")]
     public static IResourceBuilder<MongoDBServerResource> WithDbGate(this IResourceBuilder<MongoDBServerResource> builder, Action<IResourceBuilder<DbGateContainerResource>>? configureContainer = null, string? containerName = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        containerName ??= $"{builder.Resource.Name}-dbgate";
+        containerName ??= "dbgate";
 
-        var dbGateBuilder = DbGateBuilderExtensions.AddDbGate(builder.ApplicationBuilder, containerName);
+        var dbGateBuilder = builder.ApplicationBuilder.AddDbGate(containerName);
 
         dbGateBuilder
-            .WithEnvironment(context => ConfigureDbGateContainer(context, builder.ApplicationBuilder));
+            .WithEnvironment(context => ConfigureDbGateContainer(context, builder))
+            .WaitFor(builder);
 
         configureContainer?.Invoke(dbGateBuilder);
 
         return builder;
     }
 
-    private static void ConfigureDbGateContainer(EnvironmentCallbackContext context, IDistributedApplicationBuilder applicationBuilder)
+    /// <summary>
+    /// Adds an administration and development platform for MongoDB to the application model using DbGate.
+    /// </summary>
+    /// <remarks>
+    /// This version of the package defaults to the <inheritdoc cref="DbGateContainerImageTags.Tag"/> tag of the <inheritdoc cref="DbGateContainerImageTags.Image"/> container image.
+    /// </remarks>
+    /// <param name="builder">The MongoDB server resource builder.</param>
+    /// <param name="containerName">The name of the container (Optional).</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    [AspireExport("withDbGate")]
+    internal static IResourceBuilder<MongoDBServerResource> WithDbGateForPolyglot(this IResourceBuilder<MongoDBServerResource> builder, string? containerName = null)
     {
-        var mongoDBInstances = applicationBuilder.Resources.OfType<MongoDBServerResource>();
+        return builder.WithDbGate(configureContainer: null, containerName);
+    }
+#pragma warning restore ASPIREATS001
 
-        var counter = 1;
+    private static void ConfigureDbGateContainer(EnvironmentCallbackContext context, IResourceBuilder<MongoDBServerResource> builder)
+    {
+        var mongoDBServer = builder.Resource;
+
+        var name = mongoDBServer.Name;
+        var connectionId = DbGateBuilderExtensions.SanitizeConnectionId(name);
+        var label = $"LABEL_{connectionId}";
 
         // Multiple WithDbGate calls will be ignored
-        if (context.EnvironmentVariables.ContainsKey($"LABEL_mongodb{counter}"))
+        if (context.EnvironmentVariables.ContainsKey(label))
         {
             return;
         }
 
-        foreach (var mongoDBServer in mongoDBInstances)
-        {
-            // DbGate assumes MongoDB is being accessed over a default Aspire container network and hardcodes the resource address
-            // This will need to be refactored once updated service discovery APIs are available
-            context.EnvironmentVariables.Add($"LABEL_mongodb{counter}", mongoDBServer.Name);
-            context.EnvironmentVariables.Add($"URL_mongodb{counter}", mongoDBServer.ConnectionStringExpression);
-            context.EnvironmentVariables.Add($"ENGINE_mongodb{counter}", "mongo@dbgate-plugin-mongo");
+        // DbGate assumes MongoDB is being accessed over a default Aspire container network and hardcodes the resource address
+        // This will need to be refactored once updated service discovery APIs are available
+        context.EnvironmentVariables.Add(label, name);
+        context.EnvironmentVariables.Add($"URL_{connectionId}", mongoDBServer.ConnectionStringExpression);
+        context.EnvironmentVariables.Add($"ENGINE_{connectionId}", "mongo@dbgate-plugin-mongo");
 
-            counter++;
+        if (context.EnvironmentVariables.GetValueOrDefault("CONNECTIONS") is string { Length: > 0 } connections)
+        {
+            context.EnvironmentVariables["CONNECTIONS"] = $"{connections},{connectionId}";
         }
-
-        var instancesCount = mongoDBInstances.Count();
-        if (instancesCount > 0)
+        else
         {
-            var strBuilder = new StringBuilder();
-            strBuilder.AppendJoin(',', Enumerable.Range(1, instancesCount).Select(i => $"mongodb{i}"));
-            var connections = strBuilder.ToString();
-
-            string CONNECTIONS = context.EnvironmentVariables.GetValueOrDefault("CONNECTIONS")?.ToString() ?? string.Empty;
-            if (string.IsNullOrEmpty(CONNECTIONS))
-            {
-                context.EnvironmentVariables["CONNECTIONS"] = connections;
-            }
-            else
-            {
-                context.EnvironmentVariables["CONNECTIONS"] += $",{connections}";
-            }
+            context.EnvironmentVariables["CONNECTIONS"] = connectionId;
         }
     }
 }

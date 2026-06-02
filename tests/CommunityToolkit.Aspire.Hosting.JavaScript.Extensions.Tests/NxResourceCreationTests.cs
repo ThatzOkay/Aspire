@@ -1,5 +1,6 @@
 using Aspire.Hosting;
 using Aspire.Hosting.JavaScript;
+using CommunityToolkit.Aspire.Testing;
 
 namespace CommunityToolkit.Aspire.Hosting.JavaScript.Extensions.Tests;
 
@@ -58,6 +59,7 @@ public class NxResourceCreationTests
     [InlineData("npm")]
     [InlineData("yarn")]
     [InlineData("pnpm")]
+    [InlineData("bun")]
     public async Task Nx_WithPackageManagerLaunch_InfersFromInstallerWhenNotProvided(string packageManager)
     {
         var builder = DistributedApplication.CreateBuilder();
@@ -69,6 +71,7 @@ public class NxResourceCreationTests
             "npm" => nxBuilder.WithNpm(),
             "yarn" => nxBuilder.WithYarn(),
             "pnpm" => nxBuilder.WithPnpm(),
+            "bun" => nxBuilder.WithBun(),
             _ => throw new ArgumentOutOfRangeException(nameof(packageManager), $"Unsupported package manager: {packageManager}"),
         }).WithPackageManagerLaunch();
 
@@ -92,9 +95,10 @@ public class NxResourceCreationTests
             "npm" => "npx",
             "yarn" => "yarn",
             "pnpm" => "pnpx",
+            "bun" => "bunx",
             _ => packageManager
         }, nxAppResource.Command);
-        var nxAppArgs = await nxAppResource.GetArgumentValuesAsync();
+        var nxAppArgs = await nxAppResource.GetArgumentListAsync();
         Assert.Collection(nxAppArgs,
                 arg => Assert.Equal("nx", arg),
                 arg => Assert.Equal("serve", arg),
@@ -132,7 +136,7 @@ public class NxResourceCreationTests
 
         var nxPnpmApp = appModel.Resources.OfType<NxAppResource>().Single(r => r.Name == "app1-pnpm");
         Assert.Equal("pnpx", nxPnpmApp.Command);
-        var pnpmArgs = await nxPnpmApp.GetArgumentValuesAsync();
+        var pnpmArgs = await nxPnpmApp.GetArgumentListAsync();
         Assert.Collection(pnpmArgs,
             arg => Assert.Equal("nx", arg),
             arg => Assert.Equal("serve", arg),
@@ -144,7 +148,7 @@ public class NxResourceCreationTests
 
         var nxYarnApp = appModel.Resources.OfType<NxAppResource>().Single(r => r.Name == "app1-yarn");
         Assert.Equal("yarn", nxYarnApp.Command);
-        var yarnArgs = await nxYarnApp.GetArgumentValuesAsync();
+        var yarnArgs = await nxYarnApp.GetArgumentListAsync();
         Assert.Collection(yarnArgs,
             arg => Assert.Equal("nx", arg),
             arg => Assert.Equal("serve", arg),
@@ -167,7 +171,7 @@ public class NxResourceCreationTests
         var nxApp = appModel.Resources.OfType<NxAppResource>().Single(r => r.Name == "app-nx-default");
         // Command should be 'nx' (default) and args should include npx prefix because no package manager annotation
         Assert.Equal("nx", nxApp.Command);
-        var nxArgs = await nxApp.GetArgumentValuesAsync();
+        var nxArgs = await nxApp.GetArgumentListAsync();
         Assert.Collection(nxArgs,
             arg => Assert.Equal("serve", arg),
             arg => Assert.Equal("app-nx-default", arg));
@@ -177,6 +181,7 @@ public class NxResourceCreationTests
     [InlineData("npm")]
     [InlineData("yarn")]
     [InlineData("pnpm")]
+    [InlineData("bun")]
     public async Task Nx_WithPackageManager_WithoutRunWith_DoesNotAffectAppExecution(string packageManager)
     {
         var builder = DistributedApplication.CreateBuilder();
@@ -188,6 +193,7 @@ public class NxResourceCreationTests
             "npm" => nxBuilder.WithNpm(),
             "yarn" => nxBuilder.WithYarn(),
             "pnpm" => nxBuilder.WithPnpm(),
+            "bun" => nxBuilder.WithBun(),
             _ => throw new ArgumentOutOfRangeException(nameof(packageManager))
         };
 
@@ -206,7 +212,7 @@ public class NxResourceCreationTests
         // App should use "nx" directly, not wrapped via package manager
         var nxApp = Assert.Single(appModel.Resources.OfType<NxAppResource>());
         Assert.Equal("nx", nxApp.Command);
-        var args = await nxApp.GetArgumentValuesAsync();
+        var args = await nxApp.GetArgumentListAsync();
         Assert.Collection(args,
             arg => Assert.Equal("serve", arg),
             arg => Assert.Equal("test-app", arg));
@@ -272,6 +278,7 @@ public class NxResourceCreationTests
     [InlineData("npm")]
     [InlineData("yarn")]
     [InlineData("pnpm")]
+    [InlineData("bun")]
     public async Task Nx_MultipleApps_AllInheritExecutionAnnotation(string packageManager)
     {
         var builder = DistributedApplication.CreateBuilder();
@@ -282,6 +289,7 @@ public class NxResourceCreationTests
             "npm" => nx.WithNpm(),
             "yarn" => nx.WithYarn(),
             "pnpm" => nx.WithPnpm(),
+            "bun" => nx.WithBun(),
             _ => throw new ArgumentOutOfRangeException(nameof(packageManager))
         };
         nx = nx.WithPackageManagerLaunch();
@@ -303,11 +311,12 @@ public class NxResourceCreationTests
                 "npm" => "npx",
                 "yarn" => "yarn",
                 "pnpm" => "pnpx",
+                "bun" => "bunx",
                 _ => throw new ArgumentOutOfRangeException(nameof(packageManager))
             };
 
             Assert.Equal(launcherName, nxApp.Command);
-            var args = await nxApp.GetArgumentValuesAsync();
+            var args = await nxApp.GetArgumentListAsync();
             Assert.Collection(args,
                 arg => Assert.Equal("nx", arg),
                 arg => Assert.Equal("serve", arg),

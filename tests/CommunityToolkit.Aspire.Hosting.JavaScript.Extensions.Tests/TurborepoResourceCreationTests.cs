@@ -1,5 +1,6 @@
 using Aspire.Hosting;
 using Aspire.Hosting.JavaScript;
+using CommunityToolkit.Aspire.Testing;
 
 namespace CommunityToolkit.Aspire.Hosting.JavaScript.Extensions.Tests;
 
@@ -58,6 +59,7 @@ public class TurborepoResourceCreationTests
     [InlineData("npm")]
     [InlineData("yarn")]
     [InlineData("pnpm")]
+    [InlineData("bun")]
     public async Task Turborepo_WithPackageManagerLaunch_InfersFromInstallerWhenNotProvided(string packageManager)
     {
         var builder = DistributedApplication.CreateBuilder();
@@ -69,6 +71,7 @@ public class TurborepoResourceCreationTests
             "npm" => turbo.WithNpm(),
             "yarn" => turbo.WithYarn(),
             "pnpm" => turbo.WithPnpm(),
+            "bun" => turbo.WithBun(),
             _ => throw new ArgumentOutOfRangeException(nameof(packageManager), $"Unsupported package manager: {packageManager}"),
         }).WithPackageManagerLaunch();
 
@@ -91,9 +94,10 @@ public class TurborepoResourceCreationTests
             "npm" => "npx",
             "yarn" => "yarn",
             "pnpm" => "pnpx",
+            "bun" => "bunx",
             _ => packageManager
         }, turboApp.Command);
-        var turboArgs = await turboApp.GetArgumentValuesAsync();
+        var turboArgs = await turboApp.GetArgumentListAsync();
         Assert.Collection(turboArgs,
             arg => Assert.Equal("turbo", arg),
             arg => Assert.Equal("run", arg),
@@ -123,7 +127,7 @@ public class TurborepoResourceCreationTests
 
         var turboPnpmApp = appModel.Resources.OfType<TurborepoAppResource>().Single(r => r.Name == "app1-pnpm");
         Assert.Equal("pnpx", turboPnpmApp.Command);
-        var tpnpmArgs = await turboPnpmApp.GetArgumentValuesAsync();
+        var tpnpmArgs = await turboPnpmApp.GetArgumentListAsync();
         Assert.Collection(tpnpmArgs,
             arg => Assert.Equal("turbo", arg),
             arg => Assert.Equal("run", arg),
@@ -137,7 +141,7 @@ public class TurborepoResourceCreationTests
 
         var turboYarnApp = appModel.Resources.OfType<TurborepoAppResource>().Single(r => r.Name == "app1-yarn");
         Assert.Equal("yarn", turboYarnApp.Command);
-        var tyarnArgs = await turboYarnApp.GetArgumentValuesAsync();
+        var tyarnArgs = await turboYarnApp.GetArgumentListAsync();
         Assert.Collection(tyarnArgs,
             arg => Assert.Equal("turbo", arg),
             arg => Assert.Equal("run", arg),
@@ -162,7 +166,7 @@ public class TurborepoResourceCreationTests
         var turboApp = appModel.Resources.OfType<TurborepoAppResource>().Single(r => r.Name == "app-turbo-default");
         // Command should be 'turbo' (default) and args should include npx prefix
         Assert.Equal("turbo", turboApp.Command);
-        var turboArgs = await turboApp.GetArgumentValuesAsync();
+        var turboArgs = await turboApp.GetArgumentListAsync();
         Assert.Collection(turboArgs,
             arg => Assert.Equal("run", arg),
             arg => Assert.Equal("dev", arg),
@@ -174,6 +178,7 @@ public class TurborepoResourceCreationTests
     [InlineData("npm")]
     [InlineData("yarn")]
     [InlineData("pnpm")]
+    [InlineData("bun")]
     public async Task Turborepo_WithPackageManager_WithoutRunWith_DoesNotAffectAppExecution(string packageManager)
     {
         var builder = DistributedApplication.CreateBuilder();
@@ -184,6 +189,7 @@ public class TurborepoResourceCreationTests
             "npm" => turboBuilder.WithNpm(),
             "yarn" => turboBuilder.WithYarn(),
             "pnpm" => turboBuilder.WithPnpm(),
+            "bun" => turboBuilder.WithBun(),
             _ => throw new ArgumentOutOfRangeException(nameof(packageManager))
         };
 
@@ -201,7 +207,7 @@ public class TurborepoResourceCreationTests
         // App should use "turbo" directly, not wrapped via package manager
         var turboApp = Assert.Single(appModel.Resources.OfType<TurborepoAppResource>());
         Assert.Equal("turbo", turboApp.Command);
-        var args = await turboApp.GetArgumentValuesAsync();
+        var args = await turboApp.GetArgumentListAsync();
         Assert.Collection(args,
             arg => Assert.Equal("run", arg),
             arg => Assert.Equal("dev", arg),
@@ -279,6 +285,7 @@ public class TurborepoResourceCreationTests
     [InlineData("npm")]
     [InlineData("yarn")]
     [InlineData("pnpm")]
+    [InlineData("bun")]
     public async Task Turborepo_MultipleApps_AllInheritExecutionAnnotation(string packageManager)
     {
         var builder = DistributedApplication.CreateBuilder();
@@ -289,6 +296,7 @@ public class TurborepoResourceCreationTests
             "npm" => turbo.WithNpm(),
             "yarn" => turbo.WithYarn(),
             "pnpm" => turbo.WithPnpm(),
+            "bun" => turbo.WithBun(),
             _ => throw new ArgumentOutOfRangeException(nameof(packageManager))
         };
         turbo = turbo.WithPackageManagerLaunch();
@@ -310,11 +318,12 @@ public class TurborepoResourceCreationTests
                 "npm" => "npx",
                 "yarn" => "yarn",
                 "pnpm" => "pnpx",
+                "bun" => "bunx",
                 _ => throw new ArgumentOutOfRangeException(nameof(packageManager))
             };
 
             Assert.Equal(launcherName, turboApp.Command);
-            var args = await turboApp.GetArgumentValuesAsync();
+            var args = await turboApp.GetArgumentListAsync();
             Assert.Collection(args,
                 arg => Assert.Equal("turbo", arg),
                 arg => Assert.Equal("run", arg),

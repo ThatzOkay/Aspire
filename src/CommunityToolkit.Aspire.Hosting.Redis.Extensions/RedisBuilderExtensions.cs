@@ -1,5 +1,7 @@
-﻿using Aspire.Hosting.ApplicationModel;
+using Aspire.Hosting.ApplicationModel;
 using System.Text;
+
+#pragma warning disable ASPIREATS001 // AspireExport is experimental
 
 namespace Aspire.Hosting;
 
@@ -32,65 +34,50 @@ public static class RedisBuilderExtensions
     /// </code>
     /// </example>
     /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    [AspireExport(RunSyncOnBackgroundThread = true)]
     public static IResourceBuilder<RedisResource> WithDbGate(this IResourceBuilder<RedisResource> builder, Action<IResourceBuilder<DbGateContainerResource>>? configureContainer = null, string? containerName = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        containerName ??= $"{builder.Resource.Name}-dbgate";
+        containerName ??= "dbgate";
 
-        var dbGateBuilder = DbGateBuilderExtensions.AddDbGate(builder.ApplicationBuilder, containerName);
+        var dbGateBuilder = builder.ApplicationBuilder.AddDbGate(containerName);
 
         dbGateBuilder
-            .WithEnvironment(context => ConfigureDbGateContainer(context, builder.ApplicationBuilder));
+            .WithEnvironment(context => ConfigureDbGateContainer(context, builder))
+            .WaitFor(builder);
 
         configureContainer?.Invoke(dbGateBuilder);
 
         return builder;
     }
 
-    private static void ConfigureDbGateContainer(EnvironmentCallbackContext context, IDistributedApplicationBuilder applicationBuilder)
+    private static void ConfigureDbGateContainer(EnvironmentCallbackContext context, IResourceBuilder<RedisResource> builder)
     {
-        var reidsInstances = applicationBuilder.Resources.OfType<RedisResource>();
+        var redisResource = builder.Resource;
 
-        var counter = 1;
+        var name = redisResource.Name;
+        var connectionId = DbGateBuilderExtensions.SanitizeConnectionId(name);
+        var label = $"LABEL_{connectionId}";
 
-        // Multiple WithDbGate calls will be ignored
-        if (context.EnvironmentVariables.ContainsKey($"LABEL_redis{counter}"))
+        // DbGate assumes Redis is being accessed over a default Aspire container network and hardcodes the resource address
+        var redisUrl = redisResource.PasswordParameter is not null ?
+            ReferenceExpression.Create($"redis://:{redisResource.PasswordParameter}@{name}:{redisResource.PrimaryEndpoint.TargetPort?.ToString()}") :
+            ReferenceExpression.Create($"redis://{name}:{redisResource.PrimaryEndpoint.TargetPort?.ToString()}");
+
+        context.EnvironmentVariables.Add(label, name);
+        context.EnvironmentVariables.Add($"URL_{connectionId}", redisUrl);
+        context.EnvironmentVariables.Add($"ENGINE_{connectionId}", "redis@dbgate-plugin-redis");
+
+        if (context.EnvironmentVariables.GetValueOrDefault("CONNECTIONS") is string { Length: > 0 } connections)
         {
-            return;
+            context.EnvironmentVariables["CONNECTIONS"] = $"{connections},{connectionId}";
         }
-
-        foreach (var redisResource in reidsInstances)
+        else
         {
-
-            // DbGate assumes Redis is being accessed over a default Aspire container network and hardcodes the resource address
-            var redisUrl = redisResource.PasswordParameter is not null ?
-                ReferenceExpression.Create($"redis://:{redisResource.PasswordParameter}@{redisResource.Name}:{redisResource.PrimaryEndpoint.TargetPort?.ToString()}") : 
-                ReferenceExpression.Create($"redis://{redisResource.Name}:{redisResource.PrimaryEndpoint.TargetPort?.ToString()}");
-
-            context.EnvironmentVariables.Add($"LABEL_redis{counter}", redisResource.Name);
-            context.EnvironmentVariables.Add($"URL_redis{counter}", redisUrl);
-            context.EnvironmentVariables.Add($"ENGINE_redis{counter}", "redis@dbgate-plugin-redis");
-
-            counter++;
-        }
-
-        var instancesCount = reidsInstances.Count();
-        if (instancesCount > 0)
-        {
-            var strBuilder = new StringBuilder();
-            strBuilder.AppendJoin(',', Enumerable.Range(1, instancesCount).Select(i => $"redis{i}"));
-            var connections = strBuilder.ToString();
-
-            string CONNECTIONS = context.EnvironmentVariables.GetValueOrDefault("CONNECTIONS")?.ToString() ?? string.Empty;
-            if (string.IsNullOrEmpty(CONNECTIONS))
-            {
-                context.EnvironmentVariables["CONNECTIONS"] = connections;
-            }
-            else
-            {
-                context.EnvironmentVariables["CONNECTIONS"] += $",{connections}";
-            }
+            context.EnvironmentVariables["CONNECTIONS"] = connectionId;
         }
     }
 }
+
+#pragma warning restore ASPIREATS001 // AspireExport is experimental

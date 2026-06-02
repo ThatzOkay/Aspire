@@ -10,27 +10,40 @@ namespace Aspire.Hosting
 {
     public static partial class SurrealDbBuilderExtensions
     {
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbDatabaseResource> AddDatabase(this ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbNamespaceResource> builder, string name, string? databaseName = null) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbNamespaceResource> AddNamespace(this ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbServerResource> builder, string name, string? namespaceName = null) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbServerResource> AddSurrealServer(this IDistributedApplicationBuilder builder, string name, ApplicationModel.IResourceBuilder<ApplicationModel.ParameterResource>? userName = null, ApplicationModel.IResourceBuilder<ApplicationModel.ParameterResource>? password = null, int? port = null, string path = "memory", bool strictMode = false) { throw null; }
 
+        [AspireExport("withDatabaseCreationScript", MethodName = "withCreationScript")]
         [System.Diagnostics.CodeAnalysis.Experimental("CTASPIRE002")]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbDatabaseResource> WithCreationScript(this ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbDatabaseResource> builder, string script) { throw null; }
 
+        [AspireExport("withNamespaceCreationScript", MethodName = "withCreationScript")]
         [System.Diagnostics.CodeAnalysis.Experimental("CTASPIRE002")]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbNamespaceResource> WithCreationScript(this ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbNamespaceResource> builder, string script) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbServerResource> WithDataBindMount(this ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbServerResource> builder, string source) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbServerResource> WithDataVolume(this ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbServerResource> builder, string? name = null) { throw null; }
 
+        [AspireExport]
         [System.Diagnostics.CodeAnalysis.Experimental("CTASPIRE002")]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbServerResource> WithInitFiles(this ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbServerResource> builder, string source) { throw null; }
 
+        [AspireExportIgnore(Reason = "Uses Microsoft.Extensions.Logging.LogLevel, which is not ATS-compatible. Use the exported string-based overload instead.")]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbServerResource> WithLogLevel(this ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbServerResource> builder, Microsoft.Extensions.Logging.LogLevel logLevel) { throw null; }
 
+        [AspireExport("withSurrealDbOtlpExporter", MethodName = "withSurrealDbOtlpExporter")]
+        public static ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbServerResource> WithOtlpExporter(this ApplicationModel.IResourceBuilder<ApplicationModel.SurrealDbServerResource> builder) { throw null; }
+
+        [AspireExportIgnore(Reason = "Uses Action<IResourceBuilder<SurrealistContainerResource>>, which is not ATS-compatible. Use the exported overload instead.")]
         public static ApplicationModel.IResourceBuilder<T> WithSurrealist<T>(this ApplicationModel.IResourceBuilder<T> builder, System.Action<ApplicationModel.IResourceBuilder<ApplicationModel.SurrealistContainerResource>>? configureContainer = null, string? containerName = null)
             where T : ApplicationModel.SurrealDbServerResource { throw null; }
     }
@@ -38,7 +51,8 @@ namespace Aspire.Hosting
 
 namespace Aspire.Hosting.ApplicationModel
 {
-    public partial class SurrealDbDatabaseResource : Resource, IResourceWithParent<SurrealDbNamespaceResource>, IResourceWithParent, IResource, IResourceWithConnectionString, IManifestExpressionProvider, IValueProvider, IValueWithReferences
+    [AspireExport(ExposeProperties = true)]
+    public partial class SurrealDbDatabaseResource : Resource, IResourceWithParent<SurrealDbNamespaceResource>, IResourceWithParent, IResource, IResourceWithConnectionString, IExpressionValue, IValueProvider, IManifestExpressionProvider, IValueWithReferences
     {
         public SurrealDbDatabaseResource(string name, string databaseName, SurrealDbNamespaceResource parent) : base(default!) { }
 
@@ -51,7 +65,8 @@ namespace Aspire.Hosting.ApplicationModel
         System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, ReferenceExpression>> IResourceWithConnectionString.GetConnectionProperties() { throw null; }
     }
 
-    public partial class SurrealDbNamespaceResource : Resource, IResourceWithParent<SurrealDbServerResource>, IResourceWithParent, IResource, IResourceWithConnectionString, IManifestExpressionProvider, IValueProvider, IValueWithReferences
+    [AspireExport(ExposeProperties = true)]
+    public partial class SurrealDbNamespaceResource : Resource, IResourceWithParent<SurrealDbServerResource>, IResourceWithParent, IResource, IResourceWithConnectionString, IExpressionValue, IValueProvider, IManifestExpressionProvider, IValueWithReferences
     {
         public SurrealDbNamespaceResource(string name, string namespaceName, SurrealDbServerResource parent) : base(default!) { }
 
@@ -66,7 +81,8 @@ namespace Aspire.Hosting.ApplicationModel
         System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<string, ReferenceExpression>> IResourceWithConnectionString.GetConnectionProperties() { throw null; }
     }
 
-    public partial class SurrealDbServerResource : ContainerResource, IResourceWithConnectionString, IResource, IManifestExpressionProvider, IValueProvider, IValueWithReferences
+    [AspireExport(ExposeProperties = true)]
+    public partial class SurrealDbServerResource : ContainerResource, IResourceWithConnectionString, IResource, IExpressionValue, IValueProvider, IManifestExpressionProvider, IValueWithReferences
     {
         public SurrealDbServerResource(string name, ParameterResource? userName, ParameterResource password) : base(default!, default) { }
 

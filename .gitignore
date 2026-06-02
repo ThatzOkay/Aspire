@@ -7,7 +7,7 @@ obj
 appsettings.*.json
 *.orig
 test-results
-TestResults
+[Tt]est[Rr]esults
 nuget
 .pnpm-store
 .DS_Store
@@ -19,3 +19,19 @@ nuget
 target
 
 node_modules
+examples/perl/**/local/*
+**cpanfile.snapshot
+**/.aspire/modules/
+**/*.AppHost.TypeScript/nuget.config
+tsconfig.apphost.json
+.ngrok
+bun.lock
+pnpm-lock.yaml
+yarn.lock
+solr-data
+*.lscache
+apphost.js
+affected-tests
+examples/**/.modules/*
+examples/**/.aspire/modules/*
+examples/**/.aspire/integrations/*

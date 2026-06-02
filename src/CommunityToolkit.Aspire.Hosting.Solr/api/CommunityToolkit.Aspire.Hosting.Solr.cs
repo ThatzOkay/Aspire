@@ -10,13 +10,33 @@ namespace Aspire.Hosting
 {
     public static partial class SolrBuilderExtensions
     {
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.SolrResource> AddSolr(this IDistributedApplicationBuilder builder, string name, int? port = null, string? coreName = null) { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<ApplicationModel.SolrResource> WithConfigset(this ApplicationModel.IResourceBuilder<ApplicationModel.SolrResource> builder, string configSetName, string configSetPath) { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<ApplicationModel.SolrResource> WithDataBindMount(this ApplicationModel.IResourceBuilder<ApplicationModel.SolrResource> builder, string source, bool isReadOnly = false) { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<ApplicationModel.SolrResource> WithDataVolume(this ApplicationModel.IResourceBuilder<ApplicationModel.SolrResource> builder, string? name = null, bool isReadOnly = false) { throw null; }
+    }
+
+    public sealed partial class SolrConfigSetAnnotation : ApplicationModel.IResourceAnnotation
+    {
+        public SolrConfigSetAnnotation(string configSetName, string configSetPath) { }
+
+        public string ConfigSetName { get { throw null; } }
+
+        public string ConfigSetPath { get { throw null; } }
     }
 }
 
 namespace Aspire.Hosting.ApplicationModel
 {
-    public partial class SolrResource : ContainerResource, IResourceWithConnectionString, IResource, IManifestExpressionProvider, IValueProvider, IValueWithReferences
+    [AspireExport(ExposeProperties = true)]
+    public partial class SolrResource : ContainerResource, IResourceWithConnectionString, IResource, IExpressionValue, IValueProvider, IManifestExpressionProvider, IValueWithReferences
     {
         public SolrResource(string name, string coreName) : base(default!, default) { }
 

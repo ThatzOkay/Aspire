@@ -1,6 +1,8 @@
-﻿using Aspire.Hosting.ApplicationModel;
+using Aspire.Hosting.ApplicationModel;
 using System.Text;
 using System.Text.Json;
+
+#pragma warning disable ASPIREATS001 // AspireExport is experimental
 
 namespace Aspire.Hosting;
 
@@ -14,6 +16,7 @@ public static class SqlServerBuilderExtensions
     /// </summary>
     /// <remarks>
     /// This version of the package defaults to the <inheritdoc cref="DbGateContainerImageTags.Tag"/> tag of the <inheritdoc cref="DbGateContainerImageTags.Image"/> container image.
+    /// This overload is not available in polyglot app hosts. Use <see cref="WithDbGate(IResourceBuilder{SqlServerServerResource}, string, string)"/> instead.
     /// </remarks>
     /// <param name="builder">The SqlServer server resource builder.</param>
     /// <param name="configureContainer">Configuration callback for DbGate container resource.</param>
@@ -34,16 +37,18 @@ public static class SqlServerBuilderExtensions
     /// </code>
     /// </example>
     /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    [AspireExportIgnore(Reason = "Action<IResourceBuilder<DbGateContainerResource>> is not supported reliably in polyglot app hosts. Use the container options overload instead.")]
     public static IResourceBuilder<SqlServerServerResource> WithDbGate(this IResourceBuilder<SqlServerServerResource> builder, Action<IResourceBuilder<DbGateContainerResource>>? configureContainer = null, string? containerName = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        containerName ??= $"{builder.Resource.Name}-dbgate";
+        containerName ??= "dbgate";
 
         var dbGateBuilder = DbGateBuilderExtensions.AddDbGate(builder.ApplicationBuilder, containerName);
 
         dbGateBuilder
-            .WithEnvironment(context => ConfigureDbGateContainer(context, builder.ApplicationBuilder));
+            .WithEnvironment(context => ConfigureDbGateContainer(context, builder))
+            .WaitFor(builder);
 
         configureContainer?.Invoke(dbGateBuilder);
 
@@ -51,10 +56,31 @@ public static class SqlServerBuilderExtensions
     }
 
     /// <summary>
+    /// Adds an administration and development platform for SqlServer to the application model using DbGate.
+    /// </summary>
+    /// <param name="builder">The SqlServer server resource builder.</param>
+    /// <param name="containerName">The name of the container (Optional).</param>
+    /// <param name="imageTag">Optional image tag override for the DbGate container.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    [AspireExport]
+    internal static IResourceBuilder<SqlServerServerResource> WithDbGate(this IResourceBuilder<SqlServerServerResource> builder, string? containerName = null, string? imageTag = null)
+    {
+        Action<IResourceBuilder<DbGateContainerResource>>? configureContainer = null;
+        if (!string.IsNullOrWhiteSpace(imageTag))
+        {
+            configureContainer = dbGateBuilder => dbGateBuilder.WithImageTag(imageTag);
+        }
+
+        return WithDbGate(builder, configureContainer, containerName);
+    }
+
+    /// <summary>
     /// Adds an administration and development platform for SqlServer to the application model using Adminer.
     /// </summary>
     /// <remarks>
     /// This version of the package defaults to the <inheritdoc cref="AdminerContainerImageTags.Tag"/> tag of the <inheritdoc cref="AdminerContainerImageTags.Image"/> container image.
+    /// This overload is not available in polyglot app hosts. Use <see cref="WithAdminer(IResourceBuilder{SqlServerServerResource}, string, string)"/> instead.
+    /// </remarks>
     /// <param name="builder">The SqlServer server resource builder.</param>
     /// <param name="configureContainer">Configuration callback for Adminer container resource.</param>
     /// <param name="containerName">The name of the container (Optional).</param>
@@ -73,8 +99,8 @@ public static class SqlServerBuilderExtensions
     /// builder.Build().Run();
     /// </code>
     /// </example>
-    /// </remarks>
     /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    [AspireExportIgnore(Reason = "Action<IResourceBuilder<AdminerContainerResource>> is not supported reliably in polyglot app hosts. Use the container options overload instead.")]
     public static IResourceBuilder<SqlServerServerResource> WithAdminer(this IResourceBuilder<SqlServerServerResource> builder, Action<IResourceBuilder<AdminerContainerResource>>? configureContainer = null, string? containerName = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -90,48 +116,55 @@ public static class SqlServerBuilderExtensions
         return builder;
     }
 
-    private static void ConfigureDbGateContainer(EnvironmentCallbackContext context, IDistributedApplicationBuilder applicationBuilder)
+    /// <summary>
+    /// Adds an administration and development platform for SqlServer to the application model using Adminer.
+    /// </summary>
+    /// <param name="builder">The SqlServer server resource builder.</param>
+    /// <param name="containerName">The name of the container (Optional).</param>
+    /// <param name="imageTag">Optional image tag override for the Adminer container.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    [AspireExport]
+    internal static IResourceBuilder<SqlServerServerResource> WithAdminer(this IResourceBuilder<SqlServerServerResource> builder, string? containerName = null, string? imageTag = null)
     {
-        var sqlServerInstances = applicationBuilder.Resources.OfType<SqlServerServerResource>();
+        Action<IResourceBuilder<AdminerContainerResource>>? configureContainer = null;
+        if (!string.IsNullOrWhiteSpace(imageTag))
+        {
+            configureContainer = adminerBuilder => adminerBuilder.WithImageTag(imageTag);
+        }
 
-        var counter = 1;
+        return WithAdminer(builder, configureContainer, containerName);
+    }
+
+    private static void ConfigureDbGateContainer(EnvironmentCallbackContext context, IResourceBuilder<SqlServerServerResource> builder)
+    {
+        var sqlServerResource = builder.Resource;
+
+        var name = sqlServerResource.Name;
+        var connectionId = DbGateBuilderExtensions.SanitizeConnectionId(name);
+        var label = $"LABEL_{connectionId}";
 
         // Multiple WithDbGate calls will be ignored
-        if (context.EnvironmentVariables.ContainsKey($"LABEL_sqlserver{counter}"))
+        if (context.EnvironmentVariables.ContainsKey(label))
         {
             return;
         }
 
-        foreach (var sqlServerResource in sqlServerInstances)
-        {
-            // DbGate assumes SqlServer is being accessed over a default Aspire container network and hardcodes the resource address
-            // This will need to be refactored once updated service discovery APIs are available
-            context.EnvironmentVariables.Add($"LABEL_sqlserver{counter}", sqlServerResource.Name);
-            context.EnvironmentVariables.Add($"SERVER_sqlserver{counter}", sqlServerResource.Name);
-            context.EnvironmentVariables.Add($"USER_sqlserver{counter}", "sa");
-            context.EnvironmentVariables.Add($"PASSWORD_sqlserver{counter}", sqlServerResource.PasswordParameter);
-            context.EnvironmentVariables.Add($"PORT_sqlserver{counter}", sqlServerResource.PrimaryEndpoint.TargetPort!.ToString()!);
-            context.EnvironmentVariables.Add($"ENGINE_sqlserver{counter}", "mssql@dbgate-plugin-mssql");
+        // DbGate assumes SqlServer is being accessed over a default Aspire container network and hardcodes the resource address
+        // This will need to be refactored once updated service discovery APIs are available
+        context.EnvironmentVariables.Add(label, sqlServerResource.Name);
+        context.EnvironmentVariables.Add($"SERVER_{connectionId}", sqlServerResource.Name);
+        context.EnvironmentVariables.Add($"USER_{connectionId}", "sa");
+        context.EnvironmentVariables.Add($"PASSWORD_{connectionId}", sqlServerResource.PasswordParameter);
+        context.EnvironmentVariables.Add($"PORT_{connectionId}", sqlServerResource.PrimaryEndpoint.TargetPort!.ToString()!);
+        context.EnvironmentVariables.Add($"ENGINE_{connectionId}", "mssql@dbgate-plugin-mssql");
 
-            counter++;
+        if (context.EnvironmentVariables.GetValueOrDefault("CONNECTIONS") is string { Length: > 0 } connections)
+        {
+            context.EnvironmentVariables["CONNECTIONS"] = $"{connections},{connectionId}";
         }
-
-        var instancesCount = sqlServerInstances.Count();
-        if (instancesCount > 0)
+        else
         {
-            var strBuilder = new StringBuilder();
-            strBuilder.AppendJoin(',', Enumerable.Range(1, instancesCount).Select(i => $"sqlserver{i}"));
-            var connections = strBuilder.ToString();
-
-            string CONNECTIONS = context.EnvironmentVariables.GetValueOrDefault("CONNECTIONS")?.ToString() ?? string.Empty;
-            if (string.IsNullOrEmpty(CONNECTIONS))
-            {
-                context.EnvironmentVariables["CONNECTIONS"] = connections;
-            }
-            else
-            {
-                context.EnvironmentVariables["CONNECTIONS"] += $",{connections}";
-            }
+            context.EnvironmentVariables["CONNECTIONS"] = connectionId;
         }
     }
 
@@ -171,3 +204,5 @@ public static class SqlServerBuilderExtensions
         context.EnvironmentVariables["ADMINER_SERVERS"] = servers_json;
     }
 }
+
+#pragma warning restore ASPIREATS001 // AspireExport is experimental

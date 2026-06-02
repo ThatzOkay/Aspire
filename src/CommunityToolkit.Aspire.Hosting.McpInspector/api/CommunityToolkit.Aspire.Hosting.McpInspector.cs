@@ -21,17 +21,30 @@ namespace Aspire.Hosting
 
     public static partial class McpInspectorResourceBuilderExtensions
     {
+        [AspireExportIgnore(Reason = "McpInspectorOptions is not ATS-compatible. Use the parameter-based overload instead.")]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.McpInspectorResource> AddMcpInspector(this IDistributedApplicationBuilder builder, string name, McpInspectorOptions options) { throw null; }
 
+        [AspireExportIgnore(Reason = "Action<McpInspectorOptions> is not ATS-compatible. Use the parameter-based overload instead.")]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.McpInspectorResource> AddMcpInspector(this IDistributedApplicationBuilder builder, string name, System.Action<McpInspectorOptions> configureOptions) { throw null; }
 
         [System.Obsolete("Use the overload with McpInspectorOptions instead. This overload will be removed in the next version.")]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.McpInspectorResource> AddMcpInspector(this IDistributedApplicationBuilder builder, string name, int clientPort = 6274, int serverPort = 6277, string inspectorVersion = "0.17.2") { throw null; }
 
+        [AspireExportIgnore(Reason = "Use the parameter-based overload so polyglot app hosts expose a single addMcpInspector capability.")]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.McpInspectorResource> AddMcpInspector(this IDistributedApplicationBuilder builder, string name) { throw null; }
 
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<ApplicationModel.McpInspectorResource> WithBun(this ApplicationModel.IResourceBuilder<ApplicationModel.McpInspectorResource> builder) { throw null; }
+
+        [AspireExport("withInspectedMcpServer", MethodName = "withInspectedMcpServer")]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.McpInspectorResource> WithMcpServer<TResource>(this ApplicationModel.IResourceBuilder<ApplicationModel.McpInspectorResource> builder, ApplicationModel.IResourceBuilder<TResource> mcpServer, bool isDefault = true, McpTransportType transportType = McpTransportType.StreamableHttp, string path = "/mcp")
             where TResource : ApplicationModel.IResourceWithEndpoints { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<ApplicationModel.McpInspectorResource> WithPnpm(this ApplicationModel.IResourceBuilder<ApplicationModel.McpInspectorResource> builder) { throw null; }
+
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<ApplicationModel.McpInspectorResource> WithYarn(this ApplicationModel.IResourceBuilder<ApplicationModel.McpInspectorResource> builder) { throw null; }
     }
 
     public enum McpTransportType
@@ -48,7 +61,7 @@ namespace Aspire.Hosting.ApplicationModel
         public const string ClientEndpointName = "client";
         public const string InspectorVersion = "0.17.2";
         public const string ServerProxyEndpointName = "server-proxy";
-        public McpInspectorResource(string name) : base(default!, default!, default!) { }
+        public McpInspectorResource(string name, string packageName) : base(default!, default!, default!) { }
 
         public EndpointReference ClientEndpoint { get { throw null; } }
 

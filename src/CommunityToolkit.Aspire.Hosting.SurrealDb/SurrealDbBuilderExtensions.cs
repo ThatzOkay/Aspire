@@ -51,6 +51,7 @@ public static class SurrealDbBuilderExtensions
     /// </code>
     /// </example>
     /// </remarks>
+    [AspireExport]
     public static IResourceBuilder<SurrealDbServerResource> AddSurrealServer(
         this IDistributedApplicationBuilder builder,
         [ResourceName] string name,
@@ -169,6 +170,7 @@ public static class SurrealDbBuilderExtensions
     /// <summary>
     /// Adds a SurrealDB namespace to the application model. This is a child resource of a <see cref="SurrealDbServerResource"/>.
     /// </summary>
+    /// <ats-summary>Adds a SurrealDB namespace resource to the application model</ats-summary>
     /// <param name="builder">The SurrealDB resource builders.</param>
     /// <param name="name">The name of the resource. This name will be used as the connection string name when referenced in a dependency.</param>
     /// <param name="namespaceName">The name of the namespace. If not provided, this defaults to the same value as <paramref name="name"/>.</param>
@@ -189,6 +191,7 @@ public static class SurrealDbBuilderExtensions
     /// </code>
     /// </example>
     /// </remarks>
+    [AspireExport]
     public static IResourceBuilder<SurrealDbNamespaceResource> AddNamespace(
         this IResourceBuilder<SurrealDbServerResource> builder,
         [ResourceName] string name,
@@ -234,6 +237,7 @@ public static class SurrealDbBuilderExtensions
     /// <remarks>
     /// <value>Default script is <code>DEFINE NAMESPACE IF NOT EXISTS `QUOTED_NAMESPACE_NAME`;</code></value>
     /// </remarks>
+    [AspireExport("withNamespaceCreationScript", MethodName = "withCreationScript")]
     [Experimental("CTASPIRE002")]
     public static IResourceBuilder<SurrealDbNamespaceResource> WithCreationScript(this IResourceBuilder<SurrealDbNamespaceResource> builder, string script)
     {
@@ -248,6 +252,7 @@ public static class SurrealDbBuilderExtensions
     /// <summary>
     /// Adds a SurrealDB database to the application model. This is a child resource of a <see cref="SurrealDbNamespaceResource"/>.
     /// </summary>
+    /// <ats-summary>Adds a SurrealDB database resource to the application model</ats-summary>
     /// <param name="builder">The SurrealDB resource builders.</param>
     /// <param name="name">The name of the resource. This name will be used as the connection string name when referenced in a dependency.</param>
     /// <param name="databaseName">The name of the database. If not provided, this defaults to the same value as <paramref name="name"/>.</param>
@@ -268,6 +273,7 @@ public static class SurrealDbBuilderExtensions
     /// </code>
     /// </example>
     /// </remarks>
+    [AspireExport]
     public static IResourceBuilder<SurrealDbDatabaseResource> AddDatabase(
         this IResourceBuilder<SurrealDbNamespaceResource> builder,
         [ResourceName] string name,
@@ -320,6 +326,7 @@ public static class SurrealDbBuilderExtensions
     /// <remarks>
     /// <value>Default script is <code>DEFINE DATABASE IF NOT EXISTS `QUOTED_DATABASE_NAME`;</code></value>
     /// </remarks>
+    [AspireExport("withDatabaseCreationScript", MethodName = "withCreationScript")]
     [Experimental("CTASPIRE002")]
     public static IResourceBuilder<SurrealDbDatabaseResource> WithCreationScript(this IResourceBuilder<SurrealDbDatabaseResource> builder, string script)
     {
@@ -356,6 +363,7 @@ public static class SurrealDbBuilderExtensions
     /// </code>
     /// </example>
     /// </remarks>
+    [AspireExport]
     public static IResourceBuilder<SurrealDbServerResource> WithDataVolume(this IResourceBuilder<SurrealDbServerResource> builder, string? name = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -388,6 +396,7 @@ public static class SurrealDbBuilderExtensions
     /// </code>
     /// </example>
     /// </remarks>
+    [AspireExport]
     public static IResourceBuilder<SurrealDbServerResource> WithDataBindMount(this IResourceBuilder<SurrealDbServerResource> builder, string source)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -403,6 +412,7 @@ public static class SurrealDbBuilderExtensions
     /// <param name="source">The source file on the host to copy into the container.</param>
     /// <returns>The <see cref="IResourceBuilder{T}"/>.</returns>
     /// <exception cref="DistributedApplicationException">SurrealDB only support importing a single script file.</exception>
+    [AspireExport]
     [Experimental("CTASPIRE002")]
     public static IResourceBuilder<SurrealDbServerResource> WithInitFiles(this IResourceBuilder<SurrealDbServerResource> builder, string source)
     {
@@ -434,12 +444,14 @@ public static class SurrealDbBuilderExtensions
     /// <param name="builder">The resource builder.</param>
     /// <param name="logLevel">The log level to set.</param>
     /// <returns>The <see cref="IResourceBuilder{SurrealDbServerResource}"/>.</returns>
+    /// <remarks>This overload is not available in polyglot app hosts. Use the exported string-based overload instead.</remarks>
+    [AspireExportIgnore(Reason = "Uses Microsoft.Extensions.Logging.LogLevel, which is not ATS-compatible. Use the exported string-based overload instead.")]
     public static IResourceBuilder<SurrealDbServerResource> WithLogLevel(
         this IResourceBuilder<SurrealDbServerResource> builder,
         LogLevel logLevel
     )
     {
-        ArgumentNullException.ThrowIfNull(builder, nameof(builder));
+        ArgumentNullException.ThrowIfNull(builder);
 
         string value = logLevel switch
         {
@@ -452,6 +464,44 @@ public static class SurrealDbBuilderExtensions
         return builder.WithEnvironment("SURREAL_LOG", value);
     }
 
+    [AspireExport(MethodName = "withLogLevel")]
+    internal static IResourceBuilder<SurrealDbServerResource> WithLogLevelPolyglot(
+        this IResourceBuilder<SurrealDbServerResource> builder,
+        string logLevel)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentException.ThrowIfNullOrEmpty(logLevel);
+
+        if (!Enum.TryParse(logLevel, ignoreCase: true, out LogLevel parsedLogLevel))
+        {
+            string validValues = string.Join(", ", Enum.GetNames<LogLevel>());
+            throw new ArgumentException($"The log level '{logLevel}' is not supported. Valid values are: {validValues}.", nameof(logLevel));
+        }
+
+        return builder.WithLogLevel(parsedLogLevel);
+    }
+    
+    /// <summary>
+    /// Injects the appropriate environment variables to allow the resource to enable sending telemetry to the dashboard.
+    /// 1. It sets the OTLP endpoint to the value of the DOTNET_DASHBOARD_OTLP_ENDPOINT_URL environment variable.
+    /// 2. It sets the service name and instance id to the resource name and UID. Values are injected by the orchestrator.
+    /// 3. It sets a small batch schedule delay in development. This reduces the delay that OTLP exporter waits to sends telemetry and makes the dashboard telemetry pages responsive.
+    /// </summary>
+    /// <param name="builder">The resource builder.</param>
+    /// <returns>The <see cref="IResourceBuilder{SurrealDbServerResource}"/>.</returns>
+    [AspireExport("withSurrealDbOtlpExporter", MethodName = "withSurrealDbOtlpExporter")]
+    public static IResourceBuilder<SurrealDbServerResource> WithOtlpExporter(
+        this IResourceBuilder<SurrealDbServerResource> builder
+    )
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        builder.WithEnvironment("SURREAL_TELEMETRY_PROVIDER", "otlp");
+        OtlpConfigurationExtensions.WithOtlpExporter(builder);
+        
+        return builder;
+    }
+
     /// <summary>
     /// Adds a Surrealist UI instance for SurrealDB to the application model.
     /// The default image is <inheritdoc cref="SurrealDbContainerImageTags.SurrealistImage"/> and the tag is <inheritdoc cref="SurrealDbContainerImageTags.SurrealistTag"/>.
@@ -460,6 +510,8 @@ public static class SurrealDbBuilderExtensions
     /// <param name="configureContainer">Callback to configure Surrealist container resource.</param>
     /// <param name="containerName">The name of the container (optional).</param>
     /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    /// <remarks>This overload is not available in polyglot app hosts. Use the exported overload instead.</remarks>
+    [AspireExportIgnore(Reason = "Uses Action<IResourceBuilder<SurrealistContainerResource>>, which is not ATS-compatible. Use the exported overload instead.")]
     public static IResourceBuilder<T> WithSurrealist<T>(
         this IResourceBuilder<T> builder,
         Action<IResourceBuilder<SurrealistContainerResource>>? configureContainer = null,
@@ -517,6 +569,17 @@ public static class SurrealDbBuilderExtensions
         return builder;
     }
 
+    [AspireExport(MethodName = "withSurrealist")]
+    internal static IResourceBuilder<T> WithSurrealistPolyglot<T>(
+        this IResourceBuilder<T> builder,
+        string? containerName = null)
+        where T : SurrealDbServerResource
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        return builder.WithSurrealist(configureContainer: null, containerName);
+    }
+
     private static async Task<string> WriteSurrealistInstanceJson(
         IList<SurrealDbServerResource> surrealDbServerInstances,
         IList<SurrealDbNamespaceResource> surrealDbNamespaceResources,
@@ -533,6 +596,9 @@ public static class SurrealDbBuilderExtensions
 
         foreach (var surrealInstance in surrealDbServerInstances)
         {
+            var username = await surrealInstance.UserNameReference.GetValueAsync(cancellationToken);
+            var password = await surrealInstance.PasswordParameter.GetValueAsync(cancellationToken);
+                
             if (surrealInstance.PrimaryEndpoint.IsAllocated)
             {
                 SurrealDbNamespaceResource? uniqueNamespace = null;
@@ -577,6 +643,8 @@ public static class SurrealDbBuilderExtensions
                 // How to do host resolution?
                 writer.WriteString("hostname", $"{endpoint.Host}:{endpoint.Port}");
                 writer.WriteString("mode", "root");
+                writer.WriteString("username", username);
+                writer.WriteString("password", password);
                 if (uniqueNamespace is not null)
                 {
                     writer.WriteString("namespace", uniqueNamespace.NamespaceName);

@@ -2,7 +2,8 @@
 
   <PropertyGroup>
     <AdditionalPackageTags>hosting mysql dbgate</AdditionalPackageTags>
-    <Description>A .NET Aspire integration for extending mysql hosting.</Description>
+    <Description>An Aspire integration for extending mysql hosting.</Description>
+    <NoWarn>$(NoWarn);ASPIREATS001</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

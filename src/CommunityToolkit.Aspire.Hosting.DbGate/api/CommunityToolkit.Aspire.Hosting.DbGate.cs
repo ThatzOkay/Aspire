@@ -10,18 +10,25 @@ namespace Aspire.Hosting
 {
     public static partial class DbGateBuilderExtensions
     {
-        public static ApplicationModel.IResourceBuilder<ApplicationModel.DbGateContainerResource> AddDbGate(this IDistributedApplicationBuilder builder, string name, int? port = null) { throw null; }
+        [AspireExport]
+        public static ApplicationModel.IResourceBuilder<ApplicationModel.DbGateContainerResource> AddDbGate(this IDistributedApplicationBuilder builder, string name = "dbgate", int? port = null) { throw null; }
 
+        public static string SanitizeConnectionId(string resourceName) { throw null; }
+
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.DbGateContainerResource> WithDataBindMount(this ApplicationModel.IResourceBuilder<ApplicationModel.DbGateContainerResource> builder, string source, bool isReadOnly = false) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.DbGateContainerResource> WithDataVolume(this ApplicationModel.IResourceBuilder<ApplicationModel.DbGateContainerResource> builder, string? name = null, bool isReadOnly = false) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.DbGateContainerResource> WithHostPort(this ApplicationModel.IResourceBuilder<ApplicationModel.DbGateContainerResource> builder, int? port) { throw null; }
     }
 }
 
 namespace Aspire.Hosting.ApplicationModel
 {
+    [AspireExport(ExposeProperties = true)]
     public sealed partial class DbGateContainerResource : ContainerResource
     {
         public DbGateContainerResource(string name) : base(default!, default) { }

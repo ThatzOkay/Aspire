@@ -10,13 +10,17 @@ namespace Aspire.Hosting
 {
     public static partial class OpenTelemetryCollectorExtensions
     {
+        [AspireExport(RunSyncOnBackgroundThread = true)]
         public static ApplicationModel.IResourceBuilder<OpenTelemetryCollectorResource> AddOpenTelemetryCollector(this IDistributedApplicationBuilder builder, string name, System.Action<OpenTelemetryCollectorSettings>? configureSettings = null) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<OpenTelemetryCollectorResource> WithAppForwarding(this ApplicationModel.IResourceBuilder<OpenTelemetryCollectorResource> builder) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<OpenTelemetryCollectorResource> WithConfig(this ApplicationModel.IResourceBuilder<OpenTelemetryCollectorResource> builder, string configPath) { throw null; }
     }
 
+    [AspireExport(ExposeProperties = true)]
     public partial class OpenTelemetryCollectorResource : ApplicationModel.ContainerResource
     {
         public OpenTelemetryCollectorResource(string name) : base(default!, default) { }
@@ -28,10 +32,12 @@ namespace Aspire.Hosting
 
     public static partial class OpenTelemetryCollectorRoutingExtensions
     {
+        [AspireExport("withOpenTelemetryCollectorRouting")]
         public static ApplicationModel.IResourceBuilder<T> WithOpenTelemetryCollectorRouting<T>(this ApplicationModel.IResourceBuilder<T> builder, ApplicationModel.IResourceBuilder<OpenTelemetryCollectorResource> collectorBuilder)
             where T : ApplicationModel.IResourceWithEnvironment { throw null; }
     }
 
+    [AspireExport(ExposeProperties = true)]
     public partial class OpenTelemetryCollectorSettings
     {
         public string CollectorImage { get { throw null; } }

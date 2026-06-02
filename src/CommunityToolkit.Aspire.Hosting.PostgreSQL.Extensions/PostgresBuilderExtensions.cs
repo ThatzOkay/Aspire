@@ -1,7 +1,9 @@
-﻿using Aspire.Hosting.ApplicationModel;
+using Aspire.Hosting.ApplicationModel;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+
+#pragma warning disable ASPIREATS001
 
 namespace Aspire.Hosting;
 
@@ -15,6 +17,7 @@ public static class PostgresBuilderExtensions
     /// </summary>
     /// <remarks>
     /// This version of the package defaults to the <inheritdoc cref="DbGateContainerImageTags.Tag"/> tag of the <inheritdoc cref="DbGateContainerImageTags.Image"/> container image.
+    /// <para>This overload is not available in polyglot app hosts. Use the overload without the configuration callback instead.</para>
     /// </remarks>
     /// <param name="builder">The Postgres server resource builder.</param>
     /// <param name="configureContainer">Configuration callback for DbGate container resource.</param>
@@ -35,27 +38,35 @@ public static class PostgresBuilderExtensions
     /// </code>
     /// </example>
     /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    [AspireExportIgnore(Reason = "Action<IResourceBuilder<DbGateContainerResource>> is not ATS-compatible. Use the callback-free overload instead.")]
     public static IResourceBuilder<PostgresServerResource> WithDbGate(this IResourceBuilder<PostgresServerResource> builder, Action<IResourceBuilder<DbGateContainerResource>>? configureContainer = null, string? containerName = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
-        containerName ??= $"{builder.Resource.Name}-dbgate";
+        containerName ??= "dbgate";
 
         var dbGateBuilder = DbGateBuilderExtensions.AddDbGate(builder.ApplicationBuilder, containerName);
 
         dbGateBuilder
-            .WithEnvironment(context => ConfigureDbGateContainer(context, builder.ApplicationBuilder));
+            .WithEnvironment(context => ConfigureDbGateContainer(context, builder))
+            .WaitFor(builder);
 
         configureContainer?.Invoke(dbGateBuilder);
 
         return builder;
     }
 
+    [AspireExport("withDbGate")]
+    internal static IResourceBuilder<PostgresServerResource> WithDbGateForPolyglot(this IResourceBuilder<PostgresServerResource> builder, string? containerName = null) =>
+        builder.WithDbGate(configureContainer: null, containerName);
+
     /// <summary>
     /// Adds an administration and development platform for PostgreSQL to the application model using Adminer.
     /// </summary>
     /// <remarks>
     /// This version of the package defaults to the <inheritdoc cref="AdminerContainerImageTags.Tag"/> tag of the <inheritdoc cref="AdminerContainerImageTags.Image"/> container image.
+    /// <para>This overload is not available in polyglot app hosts. Use the overload without the configuration callback instead.</para>
+    /// </remarks>
     /// <param name="builder">The Postgres server resource builder.</param>
     /// <param name="configureContainer">Configuration callback for Adminer container resource.</param>
     /// <param name="containerName">The name of the container (Optional).</param>
@@ -74,8 +85,8 @@ public static class PostgresBuilderExtensions
     /// builder.Build().Run();
     /// </code>
     /// </example>
-    /// </remarks>
     /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    [AspireExportIgnore(Reason = "Action<IResourceBuilder<AdminerContainerResource>> is not ATS-compatible. Use the callback-free overload instead.")]
     public static IResourceBuilder<PostgresServerResource> WithAdminer(this IResourceBuilder<PostgresServerResource> builder, Action<IResourceBuilder<AdminerContainerResource>>? configureContainer = null, string? containerName = null)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -91,52 +102,44 @@ public static class PostgresBuilderExtensions
         return builder;
     }
 
-    private static void ConfigureDbGateContainer(EnvironmentCallbackContext context, IDistributedApplicationBuilder applicationBuilder)
-    {
-        var postgresInstances = applicationBuilder.Resources.OfType<PostgresServerResource>();
+    [AspireExport("withAdminer")]
+    internal static IResourceBuilder<PostgresServerResource> WithAdminerForPolyglot(this IResourceBuilder<PostgresServerResource> builder, string? containerName = null) =>
+        builder.WithAdminer(configureContainer: null, containerName);
 
-        var counter = 1;
+    private static void ConfigureDbGateContainer(EnvironmentCallbackContext context, IResourceBuilder<PostgresServerResource> builder)
+    {
+        var postgresServer = builder.Resource;
+
+        var name = postgresServer.Name;
+        var connectionId = DbGateBuilderExtensions.SanitizeConnectionId(name);
+        var label = $"LABEL_{connectionId}";
 
         // Multiple WithDbGate calls will be ignored
-        if (context.EnvironmentVariables.ContainsKey($"LABEL_postgres{counter}"))
+        if (context.EnvironmentVariables.ContainsKey(label))
         {
             return;
         }
 
-        foreach (var postgresServer in postgresInstances)
+        var userParameter = postgresServer.UserNameParameter is null
+         ? ReferenceExpression.Create($"postgres")
+         : ReferenceExpression.Create($"{postgresServer.UserNameParameter}");
+
+        // DbGate assumes Postgres is being accessed over a default Aspire container network and hardcodes the resource address
+        // This will need to be refactored once updated service discovery APIs are available
+        context.EnvironmentVariables.Add($"LABEL_{connectionId}", postgresServer.Name);
+        context.EnvironmentVariables.Add($"SERVER_{connectionId}", postgresServer.Name);
+        context.EnvironmentVariables.Add($"USER_{connectionId}", userParameter);
+        context.EnvironmentVariables.Add($"PASSWORD_{connectionId}", postgresServer.PasswordParameter);
+        context.EnvironmentVariables.Add($"PORT_{connectionId}", postgresServer.PrimaryEndpoint.TargetPort!.ToString()!);
+        context.EnvironmentVariables.Add($"ENGINE_{connectionId}", "postgres@dbgate-plugin-postgres");
+
+        if (context.EnvironmentVariables.GetValueOrDefault("CONNECTIONS") is string { Length: > 0 } connections)
         {
-            var userParameter = postgresServer.UserNameParameter is null
-             ? ReferenceExpression.Create($"postgres")
-             : ReferenceExpression.Create($"{postgresServer.UserNameParameter}");
-
-            // DbGate assumes Postgres is being accessed over a default Aspire container network and hardcodes the resource address
-            // This will need to be refactored once updated service discovery APIs are available
-            context.EnvironmentVariables.Add($"LABEL_postgres{counter}", postgresServer.Name);
-            context.EnvironmentVariables.Add($"SERVER_postgres{counter}", postgresServer.Name);
-            context.EnvironmentVariables.Add($"USER_postgres{counter}", userParameter);
-            context.EnvironmentVariables.Add($"PASSWORD_postgres{counter}", postgresServer.PasswordParameter);
-            context.EnvironmentVariables.Add($"PORT_postgres{counter}", postgresServer.PrimaryEndpoint.TargetPort!.ToString()!);
-            context.EnvironmentVariables.Add($"ENGINE_postgres{counter}", "postgres@dbgate-plugin-postgres");
-
-            counter++;
+            context.EnvironmentVariables["CONNECTIONS"] = $"{connections},{connectionId}";
         }
-
-        var instancesCount = postgresInstances.Count();
-        if (instancesCount > 0)
+        else
         {
-            var strBuilder = new StringBuilder();
-            strBuilder.AppendJoin(',', Enumerable.Range(1, instancesCount).Select(i => $"postgres{i}"));
-            var connections = strBuilder.ToString();
-
-            string CONNECTIONS = context.EnvironmentVariables.GetValueOrDefault("CONNECTIONS")?.ToString() ?? string.Empty;
-            if (string.IsNullOrEmpty(CONNECTIONS))
-            {
-                context.EnvironmentVariables["CONNECTIONS"] = connections;
-            }
-            else
-            {
-                context.EnvironmentVariables["CONNECTIONS"] += $",{connections}";
-            }
+            context.EnvironmentVariables["CONNECTIONS"] = connectionId;
         }
     }
 
@@ -183,3 +186,5 @@ public static class PostgresBuilderExtensions
 
     }
 }
+
+#pragma warning restore ASPIREATS001

@@ -10,6 +10,7 @@ namespace Aspire.Hosting
 {
     public static partial class RedisBuilderExtensions
     {
+        [AspireExport(RunSyncOnBackgroundThread = true)]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.RedisResource> WithDbGate(this ApplicationModel.IResourceBuilder<ApplicationModel.RedisResource> builder, System.Action<ApplicationModel.IResourceBuilder<ApplicationModel.DbGateContainerResource>>? configureContainer = null, string? containerName = null) { throw null; }
     }
 }

@@ -8,25 +8,34 @@
 //------------------------------------------------------------------------------
 namespace Aspire.Hosting
 {
+    [System.Obsolete("The MinIO OSS project has been archived and is no longer maintained. This integration is deprecated and will be removed in a future version.")]
     public static partial class MinioBuilderExtensions
     {
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.MinioContainerResource> AddMinioContainer(this IDistributedApplicationBuilder builder, string name, ApplicationModel.IResourceBuilder<ApplicationModel.ParameterResource>? rootUser = null, ApplicationModel.IResourceBuilder<ApplicationModel.ParameterResource>? rootPassword = null, int? port = null) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.MinioContainerResource> WithDataBindMount(this ApplicationModel.IResourceBuilder<ApplicationModel.MinioContainerResource> builder, string source) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.MinioContainerResource> WithDataVolume(this ApplicationModel.IResourceBuilder<ApplicationModel.MinioContainerResource> builder, string? name = null) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.MinioContainerResource> WithHostPort(this ApplicationModel.IResourceBuilder<ApplicationModel.MinioContainerResource> builder, int? port) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.MinioContainerResource> WithPassword(this ApplicationModel.IResourceBuilder<ApplicationModel.MinioContainerResource> builder, ApplicationModel.IResourceBuilder<ApplicationModel.ParameterResource> password) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.MinioContainerResource> WithUserName(this ApplicationModel.IResourceBuilder<ApplicationModel.MinioContainerResource> builder, ApplicationModel.IResourceBuilder<ApplicationModel.ParameterResource> userName) { throw null; }
     }
 }
 
 namespace Aspire.Hosting.ApplicationModel
 {
-    public sealed partial class MinioContainerResource : ContainerResource, IResourceWithConnectionString, IResource, IManifestExpressionProvider, IValueProvider, IValueWithReferences
+    [System.Obsolete("The MinIO OSS project has been archived and is no longer maintained. This integration is deprecated and will be removed in a future version.")]
+    [AspireExport(ExposeProperties = true)]
+    public sealed partial class MinioContainerResource : ContainerResource, IResourceWithConnectionString, IResource, IExpressionValue, IValueProvider, IManifestExpressionProvider, IValueWithReferences
     {
         public MinioContainerResource(string name, ParameterResource rootUser, ParameterResource passwordParameter) : base(default!, default) { }
 

@@ -4,10 +4,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
+#pragma warning disable ASPIREATS001 // AspireExport is experimental
+
 namespace Aspire.Hosting;
 
 /// <summary>
-/// Extension methods to add the collector resource
+/// Provides extension methods for adding and configuring OpenTelemetry Collector resources.
 /// </summary>
 public static class OpenTelemetryCollectorExtensions
 {
@@ -17,58 +19,46 @@ public static class OpenTelemetryCollectorExtensions
     private const string DashboardOtlpUrlDefaultValue = "http://localhost:18889";
 
     /// <summary>
-    /// Adds an OpenTelemetry Collector into the Aspire AppHost
+    /// Adds an OpenTelemetry Collector container resource to the application model.
     /// </summary>
-    /// <param name="builder"></param>
-    /// <param name="name"></param>
-    /// <param name="configureSettings"></param>
-    /// <returns></returns>
-    public static IResourceBuilder<OpenTelemetryCollectorResource> AddOpenTelemetryCollector(this IDistributedApplicationBuilder builder,
-        string name,
+    /// <param name="builder">The application builder.</param>
+    /// <param name="name">The name of the resource.</param>
+    /// <param name="configureSettings">An optional callback that configures the collector settings.</param>
+    /// <returns>A reference to the resource builder.</returns>
+    [AspireExport(RunSyncOnBackgroundThread = true)]
+    public static IResourceBuilder<OpenTelemetryCollectorResource> AddOpenTelemetryCollector(
+        this IDistributedApplicationBuilder builder,
+        [ResourceName] string name,
         Action<OpenTelemetryCollectorSettings>? configureSettings = null)
     {
-        var url = builder.Configuration[DashboardOtlpUrlVariableName] ??
+        ArgumentNullException.ThrowIfNull(builder);
+        ArgumentNullException.ThrowIfNull(name);
+
+        string url = builder.Configuration[DashboardOtlpUrlVariableName] ??
             builder.Configuration[DashboardOtlpUrlVariableNameLegacy] ??
             DashboardOtlpUrlDefaultValue;
 
-        var settings = new OpenTelemetryCollectorSettings();
+        OpenTelemetryCollectorSettings settings = new();
         configureSettings?.Invoke(settings);
 
-        var isHttpsEnabled = !settings.ForceNonSecureReceiver && url.StartsWith("https", StringComparison.OrdinalIgnoreCase);
-
-        var resource = new OpenTelemetryCollectorResource(name);
-        var resourceBuilder = builder.AddResource(resource)
-            .WithImage(settings.CollectorImage, settings.CollectorTag)
+        OpenTelemetryCollectorResource resource = new(name);
+        IResourceBuilder<OpenTelemetryCollectorResource> resourceBuilder = builder.AddResource(resource)
+            .WithImage(settings.Image, settings.CollectorTag)
+            .WithImageRegistry(settings.Registry)
             .WithEnvironment("ASPIRE_ENDPOINT", new HostUrl(url))
             .WithEnvironment("ASPIRE_API_KEY", builder.Configuration[DashboardOtlpApiKeyVariableName])
             .WithIconName("DesktopPulse");
 
+        bool useHttpsForReceivers = !settings.ForceNonSecureReceiver && url.StartsWith("https", StringComparison.OrdinalIgnoreCase);
+
         if (settings.EnableGrpcEndpoint)
-            resourceBuilder.WithEndpoint(targetPort: 4317, name: OpenTelemetryCollectorResource.GrpcEndpointName, scheme: isHttpsEnabled ? "https" : "http");
-        if (settings.EnableHttpEndpoint)
-            resourceBuilder.WithEndpoint(targetPort: 4318, name: OpenTelemetryCollectorResource.HttpEndpointName, scheme: isHttpsEnabled ? "https" : "http");
-
-
-        if (!settings.ForceNonSecureReceiver && isHttpsEnabled && builder.ExecutionContext.IsRunMode)
         {
-            resourceBuilder.RunWithHttpsDevCertificate();
+            ConfigureReceiver(4317, OpenTelemetryCollectorResource.GrpcEndpointName);
+        }
 
-            // Not using `Path.Combine` as we MUST use unix style paths in the container
-            var certFilePath = $"{DevCertHostingExtensions.DEV_CERT_BIND_MOUNT_DEST_DIR}/{DevCertHostingExtensions.CERT_FILE_NAME}";
-            var certKeyPath = $"{DevCertHostingExtensions.DEV_CERT_BIND_MOUNT_DEST_DIR}/{DevCertHostingExtensions.CERT_KEY_FILE_NAME}";
-
-            if (settings.EnableHttpEndpoint)
-            {
-                resourceBuilder.WithArgs(
-                    $@"--config=yaml:receivers::otlp::protocols::http::tls::cert_file: ""{certFilePath}""",
-                    $@"--config=yaml:receivers::otlp::protocols::http::tls::key_file: ""{certKeyPath}""");
-            }
-            if (settings.EnableGrpcEndpoint)
-            {
-                resourceBuilder.WithArgs(
-                    $@"--config=yaml:receivers::otlp::protocols::grpc::tls::cert_file: ""{certFilePath}""",
-                    $@"--config=yaml:receivers::otlp::protocols::grpc::tls::key_file: ""{certKeyPath}""");
-            }
+        if (settings.EnableHttpEndpoint)
+        {
+            ConfigureReceiver(4318, OpenTelemetryCollectorResource.HttpEndpointName);
         }
 
         if (!settings.DisableHealthcheck)
@@ -83,13 +73,34 @@ public static class OpenTelemetryCollectorExtensions
                     );
         }
         return resourceBuilder;
+
+        void ConfigureReceiver(int port, string protocol)
+        {
+            string scheme = useHttpsForReceivers ? "https" : "http";
+            resourceBuilder.WithEndpoint(targetPort: port, name: protocol, scheme: scheme);
+
+            if (!useHttpsForReceivers)
+            {
+                return;
+            }
+
+#pragma warning disable ASPIRECERTIFICATES001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+            resourceBuilder.WithHttpsCertificateConfiguration(ctx =>
+            {
+                ctx.Arguments.Add(ReferenceExpression.Create($@"--config=yaml:receivers::otlp::protocols::{protocol}::tls::cert_file: ""{ctx.CertificatePath}"""));
+                ctx.Arguments.Add(ReferenceExpression.Create($@"--config=yaml:receivers::otlp::protocols::{protocol}::tls::key_file: ""{ctx.KeyPath}"""));
+                return Task.CompletedTask;
+            });
+#pragma warning restore ASPIRECERTIFICATES001 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
+        }        
     }
 
     /// <summary>
-    /// Force all apps to forward to the collector instead of the dashboard directly
+    /// Configures all compatible resources in the application to forward telemetry to this collector.
     /// </summary>
-    /// <param name="builder"></param>
-    /// <returns></returns>
+    /// <param name="builder">The collector resource builder.</param>
+    /// <returns>A reference to the resource builder.</returns>
+    [AspireExport]
     public static IResourceBuilder<OpenTelemetryCollectorResource> WithAppForwarding(this IResourceBuilder<OpenTelemetryCollectorResource> builder)
     {
         builder.ApplicationBuilder.Eventing.Subscribe<BeforeStartEvent>((evt, ct) =>
@@ -112,16 +123,18 @@ public static class OpenTelemetryCollectorExtensions
     }
 
     /// <summary>
-    /// Adds a config file to the collector
+    /// Adds a configuration file to the collector resource.
     /// </summary>
-    /// <param name="builder"></param>
-    /// <param name="configPath"></param>
-    /// <returns></returns>
+    /// <param name="builder">The collector resource builder.</param>
+    /// <param name="configPath">The path to the collector configuration file.</param>
+    /// <returns>A reference to the resource builder.</returns>
+    [AspireExport]
     public static IResourceBuilder<OpenTelemetryCollectorResource> WithConfig(this IResourceBuilder<OpenTelemetryCollectorResource> builder, string configPath)
     {
-        var configFileInfo = new FileInfo(configPath);
+        FileInfo configFileInfo = new(configPath);
         return builder.WithBindMount(configPath, $"/config/{configFileInfo.Name}")
             .WithArgs($"--config=/config/{configFileInfo.Name}");
     }
-
 }
+
+#pragma warning restore ASPIREATS001 // AspireExport is experimental

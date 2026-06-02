@@ -3,6 +3,9 @@
 
 using Aspire.Hosting.ApplicationModel;
 using CommunityToolkit.Aspire.Hosting.k6;
+using System.Globalization;
+
+#pragma warning disable ASPIREATS001 // AspireExport is experimental
 
 namespace Aspire.Hosting;
 
@@ -36,9 +39,10 @@ public static class K6BuilderExtensions
     /// </code>
     /// </example>
     /// </remarks>
+    [AspireExport]
     public static IResourceBuilder<K6Resource> AddK6(
         this IDistributedApplicationBuilder builder,
-        string name,
+        [ResourceName] string name,
         bool enableBrowserExtensions = false,
         int? port = null)
     {
@@ -86,6 +90,7 @@ public static class K6BuilderExtensions
     /// </code>
     /// </example>
     /// </remarks>
+    [AspireExport]
     public static IResourceBuilder<K6Resource> WithScript(
         this IResourceBuilder<K6Resource> builder,
         string scriptPath,
@@ -102,7 +107,7 @@ public static class K6BuilderExtensions
             "--address",
             $"0.0.0.0:{K6Port}",
             "--vus", 
-            virtualUsers, 
+            virtualUsers.ToString(CultureInfo.InvariantCulture), 
             "--duration", 
             duration, 
             scriptPath);
@@ -114,6 +119,7 @@ public static class K6BuilderExtensions
     /// </summary>
     /// <param name="builder">The resource builder.</param>
     /// <returns>The <see cref="IResourceBuilder{T}"/>.</returns>
+    [AspireExport]
     public static IResourceBuilder<K6Resource> WithK6OtlpEnvironment(
         this IResourceBuilder<K6Resource> builder)
     {
@@ -129,3 +135,5 @@ public static class K6BuilderExtensions
         });
     }
 }
+
+#pragma warning restore ASPIREATS001 // AspireExport is experimental

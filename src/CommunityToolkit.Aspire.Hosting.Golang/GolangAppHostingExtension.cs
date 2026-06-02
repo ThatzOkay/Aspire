@@ -1,4 +1,5 @@
 ﻿using Aspire.Hosting.ApplicationModel;
+using Aspire.Hosting.ApplicationModel.Docker;
 using CommunityToolkit.Aspire.Utils;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
@@ -6,11 +7,14 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 
+#pragma warning disable ASPIREATS001 // AspireExport is experimental
+
 namespace Aspire.Hosting;
 
 /// <summary>
 /// Provides extension methods for adding Golang applications to an <see cref="IDistributedApplicationBuilder"/>.
 /// </summary>
+[Obsolete("Replaced by the Aspire.Hosting.Go package. Use AddGoApp, WithModTidy, and WithModDownload instead. This type will be removed in a future version.")]
 public static class GolangAppHostingExtension
 {
     /// <summary>
@@ -21,7 +25,7 @@ public static class GolangAppHostingExtension
     /// <param name="workingDirectory">The working directory to use for the command. If null, the working directory of the current process is used.</param>
     /// <param name="args">The optional arguments to be passed to the executable when it is started.</param>
     /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
-    [Obsolete("Use AddGolangApp with buildTags parameter instead. This method will be removed in a future version.")]
+    [Obsolete("Replaced by the Aspire.Hosting.Go package. Use AddGoApp(name, appDirectory, packagePath, buildTags).WithAppArgs(args). Runtime arguments are now supplied with WithAppArgs(...). This method will be removed in a future version.")]
     public static IResourceBuilder<GolangAppExecutableResource> AddGolangApp(this IDistributedApplicationBuilder builder, [ResourceName] string name, string workingDirectory, string[] args)
         => AddGolangApp(builder, name, workingDirectory, args, null);
 
@@ -34,6 +38,9 @@ public static class GolangAppHostingExtension
     /// <param name="args">The optional arguments to be passed to the executable when it is started.</param>
     /// <param name="buildTags">The optional build tags to be used when building the Golang application.</param>
     /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    /// <remarks>This overload is not available in polyglot app hosts. Use the overload that accepts an explicit executable path instead.</remarks>
+    [AspireExportIgnore(Reason = "Use the overload that includes the executable parameter to keep the polyglot addGolangApp surface on a single capability.")]
+    [Obsolete("Replaced by the Aspire.Hosting.Go package. Use AddGoApp(name, appDirectory, packagePath, buildTags).WithAppArgs(args). Runtime arguments are now supplied with WithAppArgs(...). This method will be removed in a future version.")]
     public static IResourceBuilder<GolangAppExecutableResource> AddGolangApp(this IDistributedApplicationBuilder builder, [ResourceName] string name, string workingDirectory, string[]? args = null, string[]? buildTags = null)
         => AddGolangApp(builder, name, workingDirectory, ".", args, buildTags);
 
@@ -47,6 +54,8 @@ public static class GolangAppHostingExtension
     /// <param name="args">The optional arguments to be passed to the executable when it is started.</param>
     /// <param name="buildTags">The optional build tags to be used when building the Golang application.</param>
     /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    [AspireExport]
+    [Obsolete("Replaced by the Aspire.Hosting.Go package. Use AddGoApp(name, appDirectory, packagePath, buildTags).WithAppArgs(args). The executable argument is now represented by packagePath, and runtime arguments are now supplied with WithAppArgs(...). This method will be removed in a future version.")]
     public static IResourceBuilder<GolangAppExecutableResource> AddGolangApp(this IDistributedApplicationBuilder builder, [ResourceName] string name, string workingDirectory, string executable, string[]? args = null, string[]? buildTags = null)
     {
         ArgumentNullException.ThrowIfNull(builder, nameof(builder));
@@ -123,12 +132,14 @@ public static class GolangAppHostingExtension
                     .Run(string.Join(" ", ["CGO_ENABLED=0", "go", .. buildArgs]));
 
                 var runtimeImage = baseImageAnnotation?.RuntimeImage ?? $"alpine:{DefaultAlpineVersion}";
+                var logger = context.Services.GetService<ILogger<GolangAppExecutableResource>>() ?? NullLogger<GolangAppExecutableResource>.Instance;
 
                 context.Builder
                     .From(runtimeImage)
                     .Run("apk --no-cache add ca-certificates")
                     .WorkDir("/app")
                     .CopyFrom(buildStage.StageName!, "/build/server", "/app/server")
+                    .AddContainerFiles(context.Resource, "/app", logger)
                     .Entrypoint(["/app/server"]);
             });
         });
@@ -234,4 +245,132 @@ public static class GolangAppHostingExtension
         logger.LogDebug("No Go version detected, will use default version");
         return null;
     }
+
+    /// <summary>
+    /// Ensures Go module dependencies are tidied before the application starts using <c>go mod tidy</c>.
+    /// </summary>
+    /// <param name="builder">The Golang app resource builder.</param>
+    /// <param name="install">When true (default), automatically runs go mod tidy before the application starts. When false, the installer resource is created but requires explicit start.</param>
+    /// <param name="configureInstaller">Optional action to configure the installer resource.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    /// <remarks>This overload is not available in polyglot app hosts. Use <c>withGoModTidy</c> without <c>configureInstaller</c> instead.</remarks>
+    [AspireExportIgnore(Reason = "Action<IResourceBuilder<GoModInstallerResource>> is not supported in polyglot app hosts. Use the overload without configureInstaller instead.")]
+    [Obsolete("Replaced by the Aspire.Hosting.Go package. Use WithModTidy(). This method will be removed in a future version.")]
+    public static IResourceBuilder<GolangAppExecutableResource> WithGoModTidy(
+        this IResourceBuilder<GolangAppExecutableResource> builder,
+        bool install = true,
+        Action<IResourceBuilder<GoModInstallerResource>>? configureInstaller = null)
+        => WithGoModTidyCore(builder, install, configureInstaller);
+
+    /// <summary>
+    /// Ensures Go module dependencies are tidied before the application starts using <c>go mod tidy</c>.
+    /// </summary>
+    /// <param name="builder">The Golang app resource builder.</param>
+    /// <param name="install">When true (default), automatically runs go mod tidy before the application starts. When false, the installer resource is created but requires explicit start.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    [AspireExport(MethodName = "withGoModTidy")]
+    internal static IResourceBuilder<GolangAppExecutableResource> WithGoModTidyPolyglot(
+        this IResourceBuilder<GolangAppExecutableResource> builder,
+        bool install = true)
+        => WithGoModTidyCore(builder, install, configureInstaller: null);
+
+    private static IResourceBuilder<GolangAppExecutableResource> WithGoModTidyCore(
+        this IResourceBuilder<GolangAppExecutableResource> builder,
+        bool install,
+        Action<IResourceBuilder<GoModInstallerResource>>? configureInstaller)
+    {
+        ArgumentNullException.ThrowIfNull(builder, nameof(builder));
+
+        // Only create installer resource if in run mode
+        if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
+        {
+            var installerName = $"{builder.Resource.Name}-go-mod-tidy";
+            var installer = new GoModInstallerResource(installerName, builder.Resource.WorkingDirectory);
+
+            var installerBuilder = builder.ApplicationBuilder.AddResource(installer)
+                .WithArgs("mod", "tidy")
+                .WithParentRelationship(builder.Resource)
+                .ExcludeFromManifest();
+
+            configureInstaller?.Invoke(installerBuilder);
+
+            if (install)
+            {
+                // Make the parent resource wait for the installer to complete
+                builder.WaitForCompletion(installerBuilder);
+            }
+            else
+            {
+                // Add WithExplicitStart when install is false
+                installerBuilder.WithExplicitStart();
+            }
+        }
+
+        return builder;
+    }
+
+    /// <summary>
+    /// Ensures Go module dependencies are downloaded before the application starts using <c>go mod download</c>.
+    /// </summary>
+    /// <param name="builder">The Golang app resource builder.</param>
+    /// <param name="install">When true (default), automatically runs go mod download before the application starts. When false, the installer resource is created but requires explicit start.</param>
+    /// <param name="configureInstaller">Optional action to configure the installer resource.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    /// <remarks>This overload is not available in polyglot app hosts. Use <c>withGoModDownload</c> without <c>configureInstaller</c> instead.</remarks>
+    [AspireExportIgnore(Reason = "Action<IResourceBuilder<GoModInstallerResource>> is not supported in polyglot app hosts. Use the overload without configureInstaller instead.")]
+    [Obsolete("Replaced by the Aspire.Hosting.Go package. Use WithModDownload(). This method will be removed in a future version.")]
+    public static IResourceBuilder<GolangAppExecutableResource> WithGoModDownload(
+        this IResourceBuilder<GolangAppExecutableResource> builder,
+        bool install = true,
+        Action<IResourceBuilder<GoModInstallerResource>>? configureInstaller = null)
+        => WithGoModDownloadCore(builder, install, configureInstaller);
+
+    /// <summary>
+    /// Ensures Go module dependencies are downloaded before the application starts using <c>go mod download</c>.
+    /// </summary>
+    /// <param name="builder">The Golang app resource builder.</param>
+    /// <param name="install">When true (default), automatically runs go mod download before the application starts. When false, the installer resource is created but requires explicit start.</param>
+    /// <returns>A reference to the <see cref="IResourceBuilder{T}"/>.</returns>
+    [AspireExport(MethodName = "withGoModDownload")]
+    internal static IResourceBuilder<GolangAppExecutableResource> WithGoModDownloadPolyglot(
+        this IResourceBuilder<GolangAppExecutableResource> builder,
+        bool install = true)
+        => WithGoModDownloadCore(builder, install, configureInstaller: null);
+
+    private static IResourceBuilder<GolangAppExecutableResource> WithGoModDownloadCore(
+        this IResourceBuilder<GolangAppExecutableResource> builder,
+        bool install,
+        Action<IResourceBuilder<GoModInstallerResource>>? configureInstaller)
+    {
+        ArgumentNullException.ThrowIfNull(builder, nameof(builder));
+
+        // Only create installer resource if in run mode
+        if (builder.ApplicationBuilder.ExecutionContext.IsRunMode)
+        {
+            var installerName = $"{builder.Resource.Name}-go-mod-download";
+            var installer = new GoModInstallerResource(installerName, builder.Resource.WorkingDirectory);
+
+            var installerBuilder = builder.ApplicationBuilder.AddResource(installer)
+                .WithArgs("mod", "download")
+                .WithParentRelationship(builder.Resource)
+                .ExcludeFromManifest();
+
+            configureInstaller?.Invoke(installerBuilder);
+
+            if (install)
+            {
+                // Make the parent resource wait for the installer to complete
+                builder.WaitForCompletion(installerBuilder);
+            }
+            else
+            {
+                // Add WithExplicitStart when install is false
+                installerBuilder.WithExplicitStart();
+            }
+        }
+
+        return builder;
+    }
 }
+
+#pragma warning restore ASPIREATS001

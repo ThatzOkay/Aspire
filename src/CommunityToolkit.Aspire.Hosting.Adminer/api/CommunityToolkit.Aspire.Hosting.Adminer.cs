@@ -10,8 +10,10 @@ namespace Aspire.Hosting
 {
     public static partial class AdminerBuilderExtensions
     {
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.AdminerContainerResource> AddAdminer(this IDistributedApplicationBuilder builder, string name, int? port = null) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.AdminerContainerResource> WithHostPort(this ApplicationModel.IResourceBuilder<ApplicationModel.AdminerContainerResource> builder, int? port) { throw null; }
     }
 }

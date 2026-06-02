@@ -10,16 +10,20 @@ namespace Aspire.Hosting
 {
     public static partial class K6BuilderExtensions
     {
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.K6Resource> AddK6(this IDistributedApplicationBuilder builder, string name, bool enableBrowserExtensions = false, int? port = null) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.K6Resource> WithK6OtlpEnvironment(this ApplicationModel.IResourceBuilder<ApplicationModel.K6Resource> builder) { throw null; }
 
+        [AspireExport]
         public static ApplicationModel.IResourceBuilder<ApplicationModel.K6Resource> WithScript(this ApplicationModel.IResourceBuilder<ApplicationModel.K6Resource> builder, string scriptPath, int virtualUsers = 10, string duration = "30s") { throw null; }
     }
 }
 
 namespace Aspire.Hosting.ApplicationModel
 {
+    [AspireExport(ExposeProperties = true)]
     public partial class K6Resource : ContainerResource
     {
         public K6Resource(string name) : base(default!, default) { }
